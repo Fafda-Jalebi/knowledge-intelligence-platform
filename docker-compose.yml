@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database (production)
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: kip
+      POSTGRES_USER: kip
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kip_secret_change_me}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kip -d kip"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kip-network
+
+  # Qdrant vector database
+  qdrant:
+    image: qdrant/qdrant:v1.10.0
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=6333
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:6333/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kip-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - DATABASE_URL=postgresql://kip:${POSTGRES_PASSWORD:-kip_secret_change_me}@postgres:5432/kip
+      - VECTOR_STORE=qdrant
+      - QDRANT_URL=http://qdrant:6333
+      - JWT_SECRET=${JWT_SECRET}
+      - ALLOW_REGISTRATION=true
+      - CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://frontend:5173
+      - EMBEDDING_PROVIDER=hashing
+      - LLM_PROVIDER=extractive
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    networks:
+      - kip-network
+    volumes:
+      - ./backend:/app/backend:ro
+      - kip_var:/app/var
+
+  # Frontend (Vite dev server for development, nginx for production)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_BASE_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - kip-network
+    volumes:
+      - ./frontend:/app/frontend:ro
+      - /app/frontend/node_modules
+
+volumes:
+  postgres_data:
+  qdrant_storage:
+  kip_var:
+
+networks:
+  kip-network:
+    driver: bridge

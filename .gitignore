@@ -1,0 +1,88 @@
+# ---- Secrets & local configuration ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+secrets/
+credentials.json
+service-account*.json
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+
+# ---- Node / frontend ----
+node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.vite/
+frontend/coverage/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---- Runtime data (generated, never committed) ----
+var/
+storage/
+uploads/
+*.sqlite3
+*.sqlite3-journal
+*.db
+*.db-wal
+*.db-shm
+qdrant_storage/
+postgres_data/
+
+# ---- Evaluation output (regenerate with `make evaluate`) ----
+# The committed baseline lives at docs/evaluation_report.json
+backend/var/
+reports/*.json
+!docs/evaluation_report.json
+
+# ---- Logs ----
+logs/
+*.log
+
+# ---- Editors / OS ----
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
