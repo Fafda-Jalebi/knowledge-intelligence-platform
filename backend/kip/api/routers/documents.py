@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
-from kip.db import session as session_module
-from kip.db.repositories import DocumentRepository
-from kip.errors import UnsupportedMediaTypeError, PayloadTooLargeError
+from kip.errors import PayloadTooLargeError, UnsupportedMediaTypeError
 from kip.services.auth import AuthService
 from kip.services.documents import DocumentService
 
@@ -16,6 +16,7 @@ router = APIRouter()
 doc_service = DocumentService()
 auth_service = AuthService()
 security = HTTPBearer(auto_error=False)
+logger = logging.getLogger(__name__)
 
 
 class DocumentResponse(BaseModel):
@@ -68,9 +69,11 @@ async def upload_document(
     except PayloadTooLargeError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
     except Exception as exc:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ingestion failed: {exc}") from exc
+        logger.exception("Document ingestion failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Document ingestion failed",
+        ) from exc
 
     return DocumentResponse(
         id=result.document_id,
@@ -79,7 +82,7 @@ async def upload_document(
         page_count=result.page_count,
         chunk_count=result.chunk_count,
         status=result.status,
-        created_at="",
+        created_at=result.created_at,
         size_bytes=len(content),
         warnings=result.warnings,
     )
@@ -150,8 +153,8 @@ async def get_document_chunks(
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
-    chunks = await doc_service.get_chunks(doc_id, user_id, limit=limit, offset=offset)
-    total = await doc_service.count_chunks(doc_id, user_id)
+    chunks = await doc_service.get_chunks(user_id, doc_id, limit=limit, offset=offset)
+    total = await doc_service.count_chunks(user_id, doc_id)
 
     return {
         "chunks": [
@@ -183,30 +186,3 @@ async def delete_document(
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
     return DeleteResponse(message="Document deleted successfully")
-
-
-async def count_for_user(self, owner_id: int, status: str | None = None) -> int:
-        async with session_module.get_session() as session:
-            repo = DocumentRepository(session)
-            return await repo.count_for_user(owner_id, status)
-
-
-DocumentService.count_for_user = count_for_user
-
-
-async def get_chunks(self, doc_id: str, owner_id: int | None = None, *, limit: int | None = None, offset: int = 0):
-    async with session_module.get_session() as session:
-        repo = ChunkRepository(session)
-        return await repo.search_by_document(doc_id, limit=limit or 50, offset=offset)
-
-
-DocumentService.get_chunks = get_chunks
-
-
-async def count_chunks(self, doc_id: str, owner_id: int | None = None) -> int:
-    async with session_module.get_session() as session:
-        repo = ChunkRepository(session)
-        return await repo.count_by_document(doc_id)
-
-
-DocumentService.count_chunks = count_chunks

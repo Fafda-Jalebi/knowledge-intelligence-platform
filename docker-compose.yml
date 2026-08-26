@@ -74,8 +74,6 @@ services:
       dockerfile: Dockerfile.dev
     ports:
       - "5173:5173"
-    environment:
-      - VITE_API_BASE_URL=http://backend:8000
     depends_on:
       - backend
     networks:

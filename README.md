@@ -56,8 +56,8 @@ pip install -e .[dev,embeddings]
 cp ../.env.example .env
 # Edit .env
 
-# Run database migrations (if using PostgreSQL)
-alembic upgrade head
+# Database tables are created at application startup from the SQLAlchemy models.
+# This project does not currently ship Alembic migration revisions.
 
 # Start the API server
 uvicorn kip.api:app --reload --host 0.0.0.0 --port 8000

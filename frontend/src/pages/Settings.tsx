@@ -93,8 +93,9 @@ export function Settings() {
       })
       setPasswordData({ current: '', new: '', confirm: '' })
       setMessage({ type: 'success', text: 'Password changed successfully' })
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.response?.data?.detail || 'Failed to change password' })
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { detail?: string } } }
+      setMessage({ type: 'error', text: axiosError.response?.data?.detail || 'Failed to change password' })
     } finally {
       setSaving(false)
     }

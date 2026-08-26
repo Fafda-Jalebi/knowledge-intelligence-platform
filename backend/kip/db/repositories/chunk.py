@@ -7,7 +7,7 @@ from typing import Optional, Sequence
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kip.db.session import Chunk
+from kip.db.session import Chunk, Document
 
 
 class ChunkRepository:
@@ -20,7 +20,7 @@ class ChunkRepository:
         """Get a chunk by ID."""
         stmt = select(Chunk).where(Chunk.id == chunk_id)
         if owner_id is not None:
-            stmt = stmt.join(Chunk.document).where(Chunk.document.has(id=chunk_id.split(":")[0]))
+            stmt = stmt.join(Document).where(Document.owner_id == owner_id)
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -30,10 +30,7 @@ class ChunkRepository:
             return []
         stmt = select(Chunk).where(Chunk.id.in_(chunk_ids))
         if owner_id is not None:
-            doc_ids = list({cid.split(":")[0] for cid in chunk_ids})
-            stmt = stmt.join(Chunk.document).where(Chunk.document.has(id=doc_ids[0]))
-            for doc_id in doc_ids[1:]:
-                stmt = stmt.where(Chunk.document.has(id=doc_id))
+            stmt = stmt.join(Document).where(Document.owner_id == owner_id)
         result = await self._session.execute(stmt)
         return list(result.scalars().all())
 
