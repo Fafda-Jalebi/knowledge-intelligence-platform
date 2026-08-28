@@ -73,29 +73,7 @@ npm run dev
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Frontend (React + Vite)                  │
-│  Dashboard │ Documents │ Chat │ Settings                        │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │ REST API (JWT Auth)
-┌──────────────────────────▼──────────────────────────────────────┐
-│                      FastAPI Backend                            │
-│  Auth │ Documents │ Chat │ Settings │ Health                    │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │ Service Layer
-┌──────────────────────────▼──────────────────────────────────────┐
-│                     RAG Pipeline (kip.core)                     │
-│  Retrieve → Gate → Hydrate → Rerank → Context → Generate → Verify│
-└──────────────────────────┬──────────────────────────────────────┘
-         ┌─────────────────┼─────────────────┐
-         ▼                 ▼                 ▼
-┌────────────────┐ ┌───────────────┐ ┌────────────────┐
-│ Vector Store   │ │ Keyword Index │ │ Relational DB  │
-│ (Qdrant/SQLite)│ │ (FTS5/BM25)   │ │ (PostgreSQL/   │
-│                │ │               │ │  SQLite)       │
-└────────────────┘ └───────────────┘ └────────────────┘
-```
+![Knowledge Intelligence Platform Architecture](docs/architecture.png)
 
 ## Configuration
 
