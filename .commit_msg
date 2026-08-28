@@ -1,0 +1,5 @@
+fix: harden test isolation, fix frontend lint, eliminate pytest deprecation
+
+Backend: fix test isolation with NullPool, explicit engine disposal, service singleton re-instantiation. Remove deprecated event_loop fixture. Accept 'no_passages' refusal reason.
+
+Frontend: extract AuthContext/useAuth hook, fix Fast Refresh warning. Fix Settings.tsx useEffect dependency with useRef. Zero lint warnings, clean build.
