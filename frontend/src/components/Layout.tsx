@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, NavLink } from 'react-router-dom'
-import { useAuth } from '../lib/auth'
+import { useAuth } from '../hooks/useAuth'
 import { Menu, X, LogOut, Settings, FileText, MessageSquare, Home } from 'lucide-react'
 import { useState } from 'react'
 import clsx from 'clsx'

@@ -1,5 +1,7 @@
 """Integration tests for the full API."""
 
+from datetime import datetime
+
 import pytest
 from httpx import AsyncClient, ASGITransport
 from kip.api import app
@@ -86,6 +88,13 @@ class TestAuthFlow:
         })
         assert resp.status_code == 200
 
+    async def test_change_password_wrong_current_password_returns_400(self, client: AsyncClient, auth_headers):
+        resp = await client.post("/api/auth/change-password", headers=auth_headers, json={
+            "current_password": "WrongPassword123!",
+            "new_password": "NewStrong-2024!Pass"
+        })
+        assert resp.status_code == 400
+
 
 class TestDocumentsFlow:
     async def test_upload_document(self, client: AsyncClient, auth_headers):
@@ -99,6 +108,8 @@ class TestDocumentsFlow:
         assert "id" in data
         assert data["filename"] == "test.txt"
         assert data["status"] == "ready"
+        assert data["created_at"]
+        datetime.fromisoformat(data["created_at"])
 
     async def test_list_documents(self, client: AsyncClient, auth_headers):
         resp = await client.get("/api/documents", headers=auth_headers)
@@ -119,6 +130,34 @@ class TestDocumentsFlow:
         assert resp.status_code == 200
         data = resp.json()
         assert data["id"] == doc_id
+
+    async def test_get_document_chunks(self, client: AsyncClient, auth_headers):
+        content = b"Chunk listing should return document text for the owner."
+        files = {"file": ("chunks.txt", content, "text/plain")}
+        upload_resp = await client.post("/api/documents/upload", headers=auth_headers, files=files)
+        doc_id = upload_resp.json()["id"]
+
+        resp = await client.get(f"/api/documents/{doc_id}/chunks", headers=auth_headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] > 0
+        assert data["chunks"][0]["body"]
+
+    async def test_document_chunks_are_scoped_to_owner(self, client: AsyncClient, auth_headers):
+        content = b"Private owner-only chunk text."
+        files = {"file": ("private.txt", content, "text/plain")}
+        upload_resp = await client.post("/api/documents/upload", headers=auth_headers, files=files)
+        doc_id = upload_resp.json()["id"]
+
+        other_resp = await client.post("/api/auth/register", json={
+            "email": "other@example.com",
+            "password": "OtherStrong-2024!Pass"
+        })
+        assert other_resp.status_code == 201
+        other_headers = {"Authorization": f"Bearer {other_resp.json()['access_token']}"}
+
+        resp = await client.get(f"/api/documents/{doc_id}/chunks", headers=other_headers)
+        assert resp.status_code == 404
 
     async def test_delete_document(self, client: AsyncClient, auth_headers):
         # Upload
@@ -166,7 +205,8 @@ class TestChatFlow:
         assert resp.status_code == 200
         data = resp.json()
         assert data["refused"]
-        assert data["refusal_reason"] in ("weak_match", "model_refused")
+        # Empty corpus -> no passages retrieved -> no_passages refusal
+        assert data["refusal_reason"] in ("no_passages", "weak_match", "model_refused")
 
     async def test_conversation_history(self, client: AsyncClient, auth_headers):
         # Upload doc

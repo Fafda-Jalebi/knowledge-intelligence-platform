@@ -197,7 +197,13 @@ def init_db() -> None:
         path = Path(sync_url.replace("sqlite:///", "").replace("sqlite://", ""))
         path.parent.mkdir(parents=True, exist_ok=True)
 
-    _engine = create_async_engine(async_url, echo=settings.is_production is False, future=True)
+    # Use NullPool for SQLite to ensure each connection is closed after use.
+    # This works with file-based SQLite databases (not in-memory).
+    from sqlalchemy.pool import NullPool
+    pool_class = NullPool if sync_url.startswith("sqlite") else None
+    pool_kwargs = {"poolclass": pool_class} if pool_class else {}
+
+    _engine = create_async_engine(async_url, echo=settings.is_production is False, future=True, **pool_kwargs)
     _session_factory = async_sessionmaker(_engine, class_=AsyncSession, expire_on_commit=False)
 
 
@@ -238,6 +244,10 @@ async def close_db() -> None:
     """Close the database engine."""
     global _engine, _session_factory
     if _engine is not None:
+        # Dispose the engine which closes all connections in the pool
         await _engine.dispose()
+        # Give the event loop a chance to process any pending connection close callbacks
+        import asyncio
+        await asyncio.sleep(0)
         _engine = None
         _session_factory = None

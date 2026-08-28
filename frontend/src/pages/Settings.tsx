@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '../lib/api'
 import { User, Database, Brain, Zap, Save, Loader2, AlertCircle, CheckCircle, RotateCcw } from 'lucide-react'
 import clsx from 'clsx'
@@ -28,20 +28,17 @@ export function Settings() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [passwordData, setPasswordData] = useState({ current: '', new: '', confirm: '' })
 
-  const providers = {
+  const providersRef = useRef({
     embedding: [] as ProviderOption[],
     llm: [] as ProviderOption[],
     reranker: [] as ProviderOption[],
     vectorStore: [] as ProviderOption[],
     keywordIndex: [] as ProviderOption[],
-  }
+  })
 
-  useEffect(() => {
-    loadSettings()
-    loadProviders()
-  }, [])
+  const providers = providersRef.current
 
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       const response = await api.get('/settings')
       setSettings(response.data)
@@ -50,9 +47,9 @@ export function Settings() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const loadProviders = async () => {
+  const loadProviders = useCallback(async () => {
     try {
       const [embedding, llm, reranker, vectorStore, keywordIndex] = await Promise.all([
         api.get('/settings/embedding-providers'),
@@ -61,15 +58,20 @@ export function Settings() {
         api.get('/settings/vector-stores'),
         api.get('/settings/keyword-indexes'),
       ])
-      providers.embedding = embedding.data
-      providers.llm = llm.data
-      providers.reranker = reranker.data
-      providers.vectorStore = vectorStore.data
-      providers.keywordIndex = keywordIndex.data
+      providersRef.current.embedding = embedding.data
+      providersRef.current.llm = llm.data
+      providersRef.current.reranker = reranker.data
+      providersRef.current.vectorStore = vectorStore.data
+      providersRef.current.keywordIndex = keywordIndex.data
     } catch (err) {
       console.error('Failed to load providers', err)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    loadSettings()
+    loadProviders()
+  }, [loadSettings, loadProviders])
 
   const handleChange = (key: keyof SettingsData, value: string | number) => {
     setSettings((prev) => (prev ? { ...prev, [key]: value } : null))
@@ -93,8 +95,9 @@ export function Settings() {
       })
       setPasswordData({ current: '', new: '', confirm: '' })
       setMessage({ type: 'success', text: 'Password changed successfully' })
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.response?.data?.detail || 'Failed to change password' })
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { detail?: string } } }
+      setMessage({ type: 'error', text: axiosError.response?.data?.detail || 'Failed to change password' })
     } finally {
       setSaving(false)
     }

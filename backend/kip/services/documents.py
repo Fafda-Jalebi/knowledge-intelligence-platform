@@ -26,6 +26,7 @@ class IngestionResult:
     page_count: int
     chunk_count: int
     status: str
+    created_at: str
     warnings: list[str]
 
 
@@ -96,7 +97,7 @@ class DocumentService:
             chunk_repo = ChunkRepository(session)
 
             # Create document record
-            await doc_repo.create(
+            doc = await doc_repo.create(
                 doc_id=doc_id,
                 owner_id=owner_id,
                 filename=filename,
@@ -148,6 +149,7 @@ class DocumentService:
                 warnings="; ".join(warnings) if warnings else None,
                 status="ready",
             )
+            created_at = doc.created_at.isoformat() if doc.created_at else ""
 
         return IngestionResult(
             document_id=doc_id,
@@ -156,6 +158,7 @@ class DocumentService:
             page_count=extracted.page_count,
             chunk_count=len(chunks),
             status="ready",
+            created_at=created_at,
             warnings=warnings,
         )
 
@@ -189,6 +192,23 @@ class DocumentService:
         async with session_module.get_session() as session:
             repo = DocumentRepository(session)
             return await repo.get_with_chunks(doc_id, owner_id)
+
+    async def get_chunks(
+        self,
+        owner_id: int,
+        doc_id: str,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Sequence[Chunk]:
+        async with session_module.get_session() as session:
+            repo = DocumentRepository(session)
+            return await repo.get_chunks(doc_id, owner_id, limit=limit, offset=offset)
+
+    async def count_chunks(self, owner_id: int, doc_id: str) -> int:
+        async with session_module.get_session() as session:
+            repo = DocumentRepository(session)
+            return await repo.count_chunks(doc_id, owner_id)
 
     async def delete_document(self, owner_id: int, doc_id: str) -> bool:
         """Delete a document and all its data from all stores."""

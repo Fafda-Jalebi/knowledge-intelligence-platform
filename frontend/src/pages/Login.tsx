@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../lib/auth'
+import { useAuth } from '../hooks/useAuth'
 import { Mail, Lock, AlertCircle } from 'lucide-react'
 
 export function Login() {
@@ -18,8 +18,9 @@ export function Login() {
     try {
       await login(email, password)
       navigate('/')
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Login failed')
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { detail?: string } } }
+      setError(axiosError.response?.data?.detail || 'Login failed')
     } finally {
       setLoading(false)
     }

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -11,6 +13,7 @@ from kip.services.chat import ChatService
 
 router = APIRouter()
 chat_service = ChatService()
+logger = logging.getLogger(__name__)
 
 
 class AskRequest(BaseModel):
@@ -91,7 +94,11 @@ async def ask_question(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Chat failed: {exc}") from exc
+        logger.exception("Chat request failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Chat request failed",
+        ) from exc
 
     return AskResponse(
         answer=result.answer,

@@ -29,8 +29,9 @@ export function Documents() {
     try {
       const response = await api.get('/documents')
       setDocuments(response.data.documents)
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load documents')
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { detail?: string } } }
+      setError(axiosError.response?.data?.detail || 'Failed to load documents')
     } finally {
       setLoading(false)
     }
@@ -77,8 +78,9 @@ export function Documents() {
       })
       setSelectedFile(null)
       await fetchDocuments()
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Upload failed')
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { detail?: string } } }
+      setError(axiosError.response?.data?.detail || 'Upload failed')
     } finally {
       setUploading(false)
     }
@@ -89,8 +91,9 @@ export function Documents() {
     try {
       await api.delete(`/documents/${docId}`)
       await fetchDocuments()
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Delete failed')
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { detail?: string } } }
+      setError(axiosError.response?.data?.detail || 'Delete failed')
     }
   }
 

@@ -20,6 +20,18 @@ interface Citation {
   count: number
 }
 
+interface Usage {
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+}
+
+interface StageInfo {
+  stage: string
+  ms: number
+  detail: Record<string, unknown>
+}
+
 interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
@@ -28,8 +40,8 @@ interface ChatMessage {
   refused?: boolean
   refusal_reason?: string
   explanation?: string
-  usage?: any
-  stages?: any[]
+  usage?: Usage
+  stages?: StageInfo[]
   total_ms?: number
 }
 
@@ -77,7 +89,8 @@ export function Chat() {
         document_ids: selectedDocIds,
       })
       setMessages([...newMessages, response.data as ChatMessage])
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { detail?: string } } }
       setMessages([
         ...newMessages,
         {
@@ -85,7 +98,7 @@ export function Chat() {
           content: 'Sorry, an error occurred. Please try again.',
           refused: true,
           refusal_reason: 'error',
-          explanation: err.response?.data?.detail || 'Unknown error',
+          explanation: axiosError.response?.data?.detail || 'Unknown error',
         },
       ])
     } finally {
