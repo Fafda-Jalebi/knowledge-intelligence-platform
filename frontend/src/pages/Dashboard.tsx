@@ -226,22 +226,22 @@ export function Dashboard() {
       </div>
 
       {/* Architecture Overview Card */}
-      <div className="card p-6 bg-gradient-to-r from-slate-900 to-slate-800 text-white border-0 shadow-lg">
+      <div className="card p-6 border border-indigo-200 bg-indigo-50/50 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-medium border border-indigo-400/20">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200">
               <Database size={13} />
               <span>Production RAG Architecture</span>
             </div>
-            <h3 className="text-lg font-bold text-white tracking-tight">
+            <h3 className="text-lg font-bold text-slate-900 tracking-tight">
               Verified Knowledge Intelligence with Zero-Hallucination Guardrails
             </h3>
-            <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+            <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
               Every synthesized response is verified against retrieved chunks. If relevance scores fall below safety thresholds, the platform refuses to speculate, guaranteeing high-precision enterprise compliance.
             </p>
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
-            <Link to="/chat" className="btn btn-primary text-xs font-semibold px-4 py-2 bg-indigo-600 hover:bg-indigo-500 border-0 text-white">
+            <Link to="/chat" className="btn btn-primary text-xs font-semibold px-4 py-2">
               <Search size={14} />
               <span>Start Exploring</span>
             </Link>
