@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { FileText, Trash2, Loader2, AlertCircle, MessageSquare, ExternalLink } from 'lucide-react'
@@ -73,9 +73,7 @@ export function Documents() {
     try {
       const formData = new FormData()
       formData.append('file', selectedFile)
-      await api.post('/documents/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+      await api.post('/documents/upload', formData)
       setSelectedFile(null)
       await fetchDocuments()
     } catch (err: unknown) {
@@ -104,6 +102,7 @@ export function Documents() {
   }
 
   const formatDate = (dateStr: string) => {
+    if (!dateStr) return '-'
     return new Date(dateStr).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',

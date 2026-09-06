@@ -1,4 +1,4 @@
-"""Extractive answerer -- the default ``LLM_PROVIDER``, and a real baseline.
+﻿"""Extractive answerer -- the default ``LLM_PROVIDER``, and a real baseline.
 
 This backend does not generate text. It selects the sentences from the retrieved
 passages that best match the question, quotes them verbatim, and attaches the
@@ -296,10 +296,16 @@ def _last_question(messages: Sequence[Message]) -> str:
     'Second?'
     >>> _last_question([Message("system", "Be exact.")])
     ''
+    >>> _last_question([Message("user", "Passages:\\n[1] text\\n\\nQuestion: What is X?")])
+    'What is X?'
     """
     for message in reversed(list(messages)):
         if message.role == "user" and message.content:
-            return message.content
+            content = str(message.content)
+            if "Question:" in content:
+                _, _, question = content.rpartition("Question:")
+                return question.strip()
+            return content.strip()
     return ""
 
 

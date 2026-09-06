@@ -1,12 +1,61 @@
+﻿import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { FileText, MessageSquare, Upload, BarChart2, ExternalLink } from 'lucide-react'
+import { api } from '../lib/api'
+
+interface DocumentItem {
+  id: string
+  chunk_count: number
+}
+
+interface ConversationItem {
+  id: number
+  message_count: number
+}
 
 export function Dashboard() {
+  const [docCount, setDocCount] = useState<number>(0)
+  const [chunkCount, setChunkCount] = useState<number>(0)
+  const [convCount, setConvCount] = useState<number>(0)
+  const [queryCount, setQueryCount] = useState<number>(0)
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadStats = async () => {
+      try {
+        const [docsRes, convsRes] = await Promise.all([
+          api.get('/documents'),
+          api.get('/chat/conversations'),
+        ])
+        if (!isMounted) return
+
+        const docs: DocumentItem[] = docsRes.data.documents || []
+        const totalDocs = docsRes.data.total ?? docs.length
+        const totalChunks = docs.reduce((sum, d) => sum + (d.chunk_count || 0), 0)
+        const convs: ConversationItem[] = convsRes.data || []
+        const totalQueries = convs.reduce((sum, c) => sum + (c.message_count || 0), 0)
+
+        setDocCount(totalDocs)
+        setChunkCount(totalChunks)
+        setConvCount(convs.length)
+        setQueryCount(totalQueries)
+      } catch {
+        // Fallback silently if not loaded yet
+      }
+    }
+
+    loadStats()
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   const stats = [
-    { label: 'Documents', value: '0', icon: FileText, color: 'bg-blue-100 text-blue-600', href: '/documents' },
-    { label: 'Conversations', value: '0', icon: MessageSquare, color: 'bg-green-100 text-green-600', href: '/chat' },
-    { label: 'Total Chunks', value: '0', icon: BarChart2, color: 'bg-purple-100 text-purple-600', href: '/documents' },
-    { label: 'Queries Today', value: '0', icon: ExternalLink, color: 'bg-orange-100 text-orange-600', href: '/chat' },
+    { label: 'Documents', value: String(docCount), icon: FileText, color: 'bg-blue-100 text-blue-600', href: '/documents' },
+    { label: 'Conversations', value: String(convCount), icon: MessageSquare, color: 'bg-green-100 text-green-600', href: '/chat' },
+    { label: 'Total Chunks', value: String(chunkCount), icon: BarChart2, color: 'bg-purple-100 text-purple-600', href: '/documents' },
+    { label: 'Queries Today', value: String(queryCount), icon: ExternalLink, color: 'bg-orange-100 text-orange-600', href: '/chat' },
   ]
 
   return (
