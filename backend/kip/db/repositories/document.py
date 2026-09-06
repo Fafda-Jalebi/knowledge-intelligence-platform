@@ -1,4 +1,4 @@
-"""Document repository."""
+﻿"""Document repository."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ class DocumentSummary:
     status: str
     created_at: str
     size_bytes: int
+    warnings: str | None = None
 
 
 class DocumentRepository:
@@ -99,6 +100,7 @@ class DocumentRepository:
                 status=d.status,
                 created_at=d.created_at.isoformat() if d.created_at else "",
                 size_bytes=d.size_bytes,
+                warnings=d.warnings,
             )
             for d in docs
         ]

@@ -1,4 +1,4 @@
-"""Extractive answerer -- the default ``LLM_PROVIDER``, and a real baseline.
+﻿"""Extractive answerer -- the default ``LLM_PROVIDER``, and a real baseline.
 
 This backend does not generate text. It selects the sentences from the retrieved
 passages that best match the question, quotes them verbatim, and attaches the
@@ -55,7 +55,12 @@ DUPLICATE_JACCARD = 0.80
 #: overlap signal: rank is a tiebreaker, not evidence.
 RANK_BONUS = 0.06
 
-DEFAULT_MAX_SENTENCES = 6
+#: Fraction of the top sentence's score that subsequent sentences must achieve.
+#: Prevents dragging in weakly-related sentences from background passages when
+#: a high-confidence answer sentence is present.
+RELATIVE_SCORE_RATIO = 0.55
+
+DEFAULT_MAX_SENTENCES = 4
 DEFAULT_MODEL = "kip-extractive-v1"
 
 #: Signals "the passages do not answer this". The RAG layer owns the user-facing
@@ -177,6 +182,7 @@ class ExtractiveClient(LlmClient):
         model: str = DEFAULT_MODEL,
         max_sentences: int = DEFAULT_MAX_SENTENCES,
         min_overlap: float = MIN_SENTENCE_OVERLAP,
+        relative_score_ratio: float = RELATIVE_SCORE_RATIO,
         max_output_tokens: int = 900,
         **kwargs: Any,
     ) -> None:
@@ -187,6 +193,7 @@ class ExtractiveClient(LlmClient):
         super().__init__(model=model, max_output_tokens=max_output_tokens, **kwargs)
         self.max_sentences = max(1, int(max_sentences))
         self.min_overlap = float(min_overlap)
+        self.relative_score_ratio = float(relative_score_ratio)
 
     def _generate(
         self,
@@ -244,15 +251,22 @@ class ExtractiveClient(LlmClient):
                 if score >= self.min_overlap:
                     candidates.append((score, int(marker), position, sentence.strip()))
 
+        if not candidates:
+            return []
+
         # Best first, then by passage rank and position so the choice is total and
         # does not depend on the order the corpus happened to be indexed in.
         candidates.sort(key=lambda item: (-item[0], item[1], item[2]))
+        top_score = candidates[0][0]
+        effective_min_score = max(self.min_overlap, top_score * self.relative_score_ratio)
 
         chosen: list[tuple[float, int, int, str]] = []
         budget = max(1, int(max_output_tokens))
         spent = 0
         for candidate in candidates:
             if len(chosen) >= self.max_sentences:
+                break
+            if candidate[0] < effective_min_score:
                 break
             terms = stemmed_content_tokens(candidate[3])
             if any(
@@ -296,10 +310,16 @@ def _last_question(messages: Sequence[Message]) -> str:
     'Second?'
     >>> _last_question([Message("system", "Be exact.")])
     ''
+    >>> _last_question([Message("user", "Passages:\\n[1] text\\n\\nQuestion: What is X?")])
+    'What is X?'
     """
     for message in reversed(list(messages)):
         if message.role == "user" and message.content:
-            return message.content
+            content = str(message.content)
+            if "Question:" in content:
+                _, _, question = content.rpartition("Question:")
+                return question.strip()
+            return content.strip()
     return ""
 
 
@@ -310,6 +330,7 @@ __all__ = [
     "INSUFFICIENT",
     "MIN_SENTENCE_OVERLAP",
     "RANK_BONUS",
+    "RELATIVE_SCORE_RATIO",
     "cite",
     "score_sentence",
 ]
