@@ -51,7 +51,7 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - JWT_SECRET=${JWT_SECRET}
       - ALLOW_REGISTRATION=true
-      - CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://frontend:5173
+      - CORS_ORIGINS=http://localhost,http://127.0.0.1,http://frontend
       - EMBEDDING_PROVIDER=hashing
       - LLM_PROVIDER=extractive
       - LOG_LEVEL=INFO
@@ -67,20 +67,17 @@ services:
       - ./backend:/app/backend:ro
       - kip_var:/app/var
 
-  # Frontend (Vite dev server for development, nginx for production)
+# Frontend (nginx production build)
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     ports:
-      - "5173:5173"
+      - "80:80"
     depends_on:
       - backend
     networks:
       - kip-network
-    volumes:
-      - ./frontend:/app/frontend:ro
-      - /app/frontend/node_modules
 
 volumes:
   postgres_data:

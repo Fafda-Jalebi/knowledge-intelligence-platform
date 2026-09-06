@@ -38,7 +38,7 @@ cp .env.example .env
 docker compose up -d
 
 # Access the application
-# Frontend: http://localhost:5173
+# Frontend: http://localhost
 # API Docs: http://localhost:8000/docs
 ```
 
@@ -57,7 +57,8 @@ cp ../.env.example .env
 # Edit .env
 
 # Database tables are created at application startup from the SQLAlchemy models.
-# This project does not currently ship Alembic migration revisions.
+# Alembic is installed but no migration revisions are shipped.
+# DO NOT run `alembic upgrade head` - tables are auto-created on startup.
 
 # Start the API server
 uvicorn kip.api:app --reload --host 0.0.0.0 --port 8000
