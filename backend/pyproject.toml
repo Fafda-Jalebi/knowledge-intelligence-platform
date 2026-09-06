@@ -11,7 +11,7 @@ requires-python = ">=3.10"
 dependencies = [
     "fastapi==0.112.0",
     "uvicorn[standard]==0.30.6",
-    "pydantic==2.8.2",
+    "pydantic==2.13.5",
     "pydantic-settings==2.3.4",
     "email-validator==2.2.0",
     "python-multipart==0.0.9",
