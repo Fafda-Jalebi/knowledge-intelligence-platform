@@ -1,7 +1,7 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
-import { FileText, Trash2, Loader2, AlertCircle, MessageSquare, ExternalLink } from 'lucide-react'
+import { FileText, Trash2, Loader2, AlertCircle, MessageSquare, X, UploadCloud, Layers, BookOpen, Clock } from 'lucide-react'
 import clsx from 'clsx'
 
 interface Document {
@@ -28,7 +28,7 @@ export function Documents() {
   const fetchDocuments = async () => {
     try {
       const response = await api.get('/documents')
-      setDocuments(response.data.documents)
+      setDocuments(response.data.documents || [])
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { detail?: string } } }
       setError(axiosError.response?.data?.detail || 'Failed to load documents')
@@ -55,7 +55,7 @@ export function Documents() {
     e.preventDefault()
     e.stopPropagation()
     setDragActive(false)
-    if (e.dataTransfer.files.length > 0) {
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       setSelectedFile(e.dataTransfer.files[0])
     }
   }
@@ -96,13 +96,14 @@ export function Documents() {
   }
 
   const formatSize = (bytes: number) => {
+    if (!bytes && bytes !== 0) return '0 B'
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
   const formatDate = (dateStr: string) => {
-    if (!dateStr) return '-'
+    if (!dateStr) return '—'
     return new Date(dateStr).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -112,27 +113,46 @@ export function Documents() {
     })
   }
 
-  const statusColors: Record<string, string> = {
-    ready: 'bg-green-100 text-green-700',
-    pending: 'bg-yellow-100 text-yellow-700',
-    failed: 'bg-red-100 text-red-700',
-    processing: 'bg-blue-100 text-blue-700',
+  const getFileBadge = (filename: string) => {
+    const ext = filename.split('.').pop()?.toLowerCase()
+    switch (ext) {
+      case 'pdf':
+        return { label: 'PDF', bg: 'bg-red-50 text-red-600 border-red-200' }
+      case 'docx':
+      case 'doc':
+        return { label: 'DOCX', bg: 'bg-blue-50 text-blue-600 border-blue-200' }
+      case 'txt':
+        return { label: 'TXT', bg: 'bg-emerald-50 text-emerald-600 border-emerald-200' }
+      case 'md':
+        return { label: 'MD', bg: 'bg-purple-50 text-purple-600 border-purple-200' }
+      default:
+        return { label: ext?.toUpperCase() || 'FILE', bg: 'bg-slate-50 text-slate-600 border-slate-200' }
+    }
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-[var(--color-border)]">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text)]">Documents</h1>
-          <p className="text-[var(--color-text-muted)]">Manage your document library</p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight">Document Library</h1>
+          <p className="text-sm text-[var(--color-text-muted)] mt-1">
+            Upload, chunk, and manage documents indexed in the vector store.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+          <Layers size={15} className="text-indigo-600" />
+          <span>{documents.length} Indexed Document{documents.length === 1 ? '' : 's'}</span>
         </div>
       </div>
 
-      {/* Upload zone */}
+      {/* Upload Zone */}
       <div
         className={clsx(
-          'card p-6 border-2 border-dashed transition-colors',
-          dragActive ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5' : 'border-[var(--color-border)]'
+          'card p-6 border-2 border-dashed transition-all',
+          dragActive
+            ? 'border-[var(--color-primary)] bg-indigo-50/50 shadow-sm'
+            : 'border-[var(--color-border)] hover:border-slate-300'
         )}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -147,118 +167,219 @@ export function Documents() {
           className="hidden"
           disabled={uploading}
         />
-        <div className="text-center">
+
+        <div className="text-center max-w-lg mx-auto">
           {selectedFile ? (
-            <div className="flex items-center justify-between p-4 bg-[var(--color-background)] rounded-lg">
-              <div className="flex items-center gap-3">
-                <FileText className={clsx('text-[var(--color-text-muted)]', selectedFile.type.includes('pdf') && 'text-red-500', selectedFile.type.includes('word') && 'text-blue-500')} size={24} />
-                <div>
-                  <p className="font-medium">{selectedFile.name}</p>
-                  <p className="text-sm text-[var(--color-text-muted)]">{formatSize(selectedFile.size)}</p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-xl shadow-xs">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0 border border-indigo-100">
+                    <FileText size={20} />
+                  </div>
+                  <div className="text-left min-w-0">
+                    <p className="font-semibold text-sm text-slate-900 truncate">{selectedFile.name}</p>
+                    <p className="text-xs text-[var(--color-text-muted)]">{formatSize(selectedFile.size)}</p>
+                  </div>
                 </div>
+                <button
+                  onClick={() => setSelectedFile(null)}
+                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  aria-label="Remove selected file"
+                  disabled={uploading}
+                >
+                  <X size={18} />
+                </button>
               </div>
-              <button
-                onClick={() => setSelectedFile(null)}
-                className="text-[var(--color-text-muted)] hover:text-[var(--color-error)]"
-              >
-                <ExternalLink size={20} />
-              </button>
+
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={() => setSelectedFile(null)}
+                  className="btn btn-secondary text-xs"
+                  disabled={uploading}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpload}
+                  className="btn btn-primary text-xs font-semibold px-5"
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="animate-spin mr-1.5" size={16} />
+                      <span>Extracting & Chunking...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UploadCloud size={16} className="mr-1.5" />
+                      <span>Upload & Ingest</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           ) : (
             <>
-              <FileText size={48} className="mx-auto text-[var(--color-text-muted)] mb-4" />
-              <p className="text-lg font-medium text-[var(--color-text)] mb-1">Drag & drop a document or click to browse</p>
-              <p className="text-[var(--color-text-muted)] mb-4">Supports PDF, DOCX, TXT, MD (max 25MB)</p>
-              <label htmlFor="file-upload" className="btn btn-primary cursor-pointer">
-                Choose File
-              </label>
+              <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mx-auto mb-3">
+                <UploadCloud size={24} />
+              </div>
+              <p className="text-base font-semibold text-slate-900 mb-1">
+                Drop your document here, or{' '}
+                <label htmlFor="file-upload" className="text-indigo-600 hover:underline cursor-pointer">
+                  browse
+                </label>
+              </p>
+              <p className="text-xs text-[var(--color-text-muted)] mb-4">
+                Supported formats: PDF, DOCX, TXT, Markdown (Max file size: 25MB)
+              </p>
+              <div className="flex items-center justify-center gap-2">
+                <span className="badge badge-neutral text-[10px]">PDF</span>
+                <span className="badge badge-neutral text-[10px]">DOCX</span>
+                <span className="badge badge-neutral text-[10px]">TXT</span>
+                <span className="badge badge-neutral text-[10px]">Markdown</span>
+              </div>
             </>
           )}
 
           {error && (
-            <div className="mt-4 flex items-center gap-2 p-3 bg-[var(--color-error)]/10 border border-[var(--color-error)]/20 text-[var(--color-error)] rounded-lg text-sm">
-              <AlertCircle size={18} />
+            <div className="mt-4 flex items-start gap-2.5 p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs text-left">
+              <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
-          )}
-
-          {selectedFile && !uploading && (
-            <button onClick={handleUpload} className="btn btn-primary mt-4 w-full sm:w-auto" disabled={uploading}>
-              <Loader2 className={clsx(uploading && 'animate-spin')} size={18} />
-              <span>{uploading ? 'Uploading...' : 'Upload & Process'}</span>
-            </button>
           )}
         </div>
       </div>
 
-      {/* Documents list */}
+      {/* Documents Table or Empty State */}
       {loading ? (
         <div className="card p-12 text-center">
           <Loader2 size={32} className="mx-auto animate-spin text-[var(--color-primary)]" />
-          <p className="mt-2 text-[var(--color-text-muted)]">Loading documents...</p>
+          <p className="mt-3 text-sm text-[var(--color-text-muted)]">Loading document index...</p>
         </div>
       ) : documents.length === 0 ? (
         <div className="card p-12 text-center">
-          <FileText size={48} className="mx-auto text-[var(--color-text-muted)] mb-4 opacity-50" />
-          <h3 className="text-lg font-medium text-[var(--color-text)] mb-1">No documents yet</h3>
-          <p className="text-[var(--color-text-muted)]">Upload your first document to get started</p>
+          <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
+            <FileText size={28} />
+          </div>
+          <h3 className="text-base font-semibold text-slate-900 mb-1">No documents indexed yet</h3>
+          <p className="text-xs text-[var(--color-text-muted)] max-w-sm mx-auto mb-4">
+            Upload your technical documentation, research papers, or knowledge files to enable grounded AI Q&A.
+          </p>
+          <label htmlFor="file-upload" className="btn btn-primary text-xs cursor-pointer">
+            <UploadCloud size={15} />
+            <span>Upload Document</span>
+          </label>
         </div>
       ) : (
-        <div className="card overflow-hidden">
+        <div className="card overflow-hidden shadow-card border border-[var(--color-border)]">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-[var(--color-border)] bg-[var(--color-background)]">
-                  <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">Document</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">Pages</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">Chunks</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">Size</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">Status</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">Added</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-[var(--color-text-muted)]">Actions</th>
+                <tr className="border-b border-[var(--color-border)] bg-slate-50/80 text-xs font-semibold text-slate-600">
+                  <th className="px-5 py-3.5">Document</th>
+                  <th className="px-4 py-3.5">Format</th>
+                  <th className="px-4 py-3.5">Pages</th>
+                  <th className="px-4 py-3.5">Chunks</th>
+                  <th className="px-4 py-3.5">Size</th>
+                  <th className="px-4 py-3.5">Status</th>
+                  <th className="px-4 py-3.5">Indexed At</th>
+                  <th className="px-5 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
-                {documents.map((doc) => (
-                  <tr key={doc.id} className="border-b border-[var(--color-border)] hover:bg-[var(--color-background)]">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <FileText className={clsx('text-[var(--color-text-muted)]', doc.filename.endsWith('.pdf') && 'text-red-500', doc.filename.endsWith('.docx') && 'text-blue-500')} size={20} />
-                        <div>
-                          <p className="font-medium truncate max-w-xs">{doc.filename}</p>
-                          {doc.title && <p className="text-sm text-[var(--color-text-muted)] truncate max-w-xs">{doc.title}</p>}
+              <tbody className="divide-y divide-[var(--color-border)] text-xs">
+                {documents.map((doc) => {
+                  const badge = getFileBadge(doc.filename)
+                  return (
+                    <tr key={doc.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 text-slate-600">
+                            <FileText size={16} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-900 truncate max-w-xs">{doc.filename}</p>
+                            {doc.title && (
+                              <p className="text-[11px] text-[var(--color-text-muted)] truncate max-w-xs">{doc.title}</p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-[var(--color-text)]">{doc.page_count}</td>
-                    <td className="px-4 py-3 text-sm text-[var(--color-text)]">{doc.chunk_count}</td>
-                    <td className="px-4 py-3 text-sm text-[var(--color-text-muted)]">{formatSize(doc.size_bytes)}</td>
-                    <td className="px-4 py-3">
-                      <span className={clsx('badge', statusColors[doc.status] || 'bg-gray-100 text-gray-700')}>
-                        {doc.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-[var(--color-text-muted)]">{formatDate(doc.created_at)}</td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => navigate(`/chat?doc=${doc.id}`)}
-                          className="p-2 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 rounded-lg transition-colors"
-                          title="Chat with this document"
-                        >
-                          <MessageSquare size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(doc.id)}
-                          className="p-2 text-[var(--color-text-muted)] hover:text-[var(--color-error)] hover:bg-[var(--color-error)]/10 rounded-lg transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span className={clsx('badge text-[10px] font-mono border', badge.bg)}>
+                          {badge.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-slate-700 font-medium">
+                        <div className="flex items-center gap-1">
+                          <BookOpen size={13} className="text-slate-400" />
+                          <span>{doc.page_count || 1}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-slate-700 font-medium">
+                        <div className="flex items-center gap-1">
+                          <Layers size={13} className="text-slate-400" />
+                          <span>{doc.chunk_count || 0}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-[var(--color-text-muted)] font-mono text-[11px]">
+                        {formatSize(doc.size_bytes)}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {doc.status === 'ready' && (
+                          <span className="badge badge-success text-[10px]">
+                            <span className="status-dot bg-emerald-500 mr-0.5" /> Ready
+                          </span>
+                        )}
+                        {doc.status === 'processing' && (
+                          <span className="badge badge-info text-[10px]">
+                            <Loader2 size={11} className="animate-spin mr-0.5" /> Processing
+                          </span>
+                        )}
+                        {doc.status === 'pending' && (
+                          <span className="badge badge-warning text-[10px]">
+                            <span className="status-dot bg-amber-500 mr-0.5" /> Pending
+                          </span>
+                        )}
+                        {doc.status === 'failed' && (
+                          <span className="badge badge-error text-[10px]">
+                            <span className="status-dot bg-red-500 mr-0.5" /> Failed
+                          </span>
+                        )}
+                        {!['ready', 'processing', 'pending', 'failed'].includes(doc.status) && (
+                          <span className="badge badge-neutral text-[10px]">
+                            {doc.status}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 text-[var(--color-text-muted)]">
+                        <div className="flex items-center gap-1 text-[11px]">
+                          <Clock size={12} className="text-slate-400" />
+                          <span>{formatDate(doc.created_at)}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => navigate(`/chat?doc=${doc.id}`)}
+                            className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                            title="Chat with this document"
+                            aria-label="Chat with document"
+                          >
+                            <MessageSquare size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(doc.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                            title="Delete document"
+                            aria-label="Delete document"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

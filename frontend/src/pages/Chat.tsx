@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
-import { Send, Loader2, Copy, Check, FileText, Sparkles } from 'lucide-react'
+import { Send, Loader2, Copy, Check, FileText, Sparkles, ShieldCheck, Clock, Layers, ChevronDown, ChevronUp, AlertCircle, Bot } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import clsx from 'clsx'
 
@@ -51,8 +51,8 @@ export function Chat() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([])
-  const [showSources, setShowSources] = useState<number | null>(null)
-  const [copiedCitation, setCopiedCitation] = useState<number | null>(null)
+  const [expandedCitation, setExpandedCitation] = useState<{ msgIdx: number; citeIdx: number } | null>(null)
+  const [copiedCitation, setCopiedCitation] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -76,7 +76,7 @@ export function Chat() {
     e.preventDefault()
     if (!input.trim() || loading) return
 
-    const userMessage = input
+    const userMessage = input.trim()
     setInput('')
     setLoading(true)
 
@@ -95,10 +95,10 @@ export function Chat() {
         ...newMessages,
         {
           role: 'assistant' as const,
-          content: 'Sorry, an error occurred. Please try again.',
+          content: 'I encountered an issue generating a grounded response. Please verify that documents are indexed and try again.',
           refused: true,
           refusal_reason: 'error',
-          explanation: axiosError.response?.data?.detail || 'Unknown error',
+          explanation: axiosError.response?.data?.detail || 'Network or server error during retrieval.',
         },
       ])
     } finally {
@@ -106,9 +106,9 @@ export function Chat() {
     }
   }
 
-  const handleCopy = (text: string, marker: number) => {
+  const handleCopy = (text: string, citeId: string) => {
     navigator.clipboard.writeText(text)
-    setCopiedCitation(marker)
+    setCopiedCitation(citeId)
     setTimeout(() => setCopiedCitation(null), 2000)
   }
 
@@ -117,39 +117,71 @@ export function Chat() {
     return `${(ms / 1000).toFixed(2)}s`
   }
 
+  const toggleCitation = (msgIdx: number, citeIdx: number) => {
+    if (expandedCitation?.msgIdx === msgIdx && expandedCitation?.citeIdx === citeIdx) {
+      setExpandedCitation(null)
+    } else {
+      setExpandedCitation({ msgIdx, citeIdx })
+    }
+  }
+
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+    <div className="flex flex-col h-[calc(100vh-6.5rem)] card bg-[var(--color-surface)] border border-[var(--color-border)] shadow-md overflow-hidden">
+      {/* Chat Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)] bg-slate-50/70">
         <div>
-          <h1 className="text-xl font-bold text-[var(--color-text)]">Chat</h1>
-          <p className="text-sm text-[var(--color-text-muted)]">
-            Ask questions about your documents. Answers are grounded with citations.
+          <div className="flex items-center gap-2">
+            <h1 className="text-base font-bold text-slate-900 tracking-tight">Grounded Assistant</h1>
+            <span className="badge badge-info text-[10px] py-0.5">
+              <ShieldCheck size={11} className="mr-0.5" /> Citation Verified
+            </span>
+          </div>
+          <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+            Hybrid search with dense embeddings, BM25 keyword matching, and evidence gating.
           </p>
         </div>
+
         <div className="flex items-center gap-2">
-          {selectedDocIds.length > 0 && (
-            <span className="badge badge-info">
-              <FileText size={12} />
-              <span>{selectedDocIds.length} document(s) selected</span>
+          {selectedDocIds.length > 0 ? (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg text-xs font-medium">
+              <FileText size={13} />
+              <span>Targeting {selectedDocIds.length} doc{selectedDocIds.length === 1 ? '' : 's'}</span>
+              <button
+                onClick={() => setSelectedDocIds([])}
+                className="ml-1 text-indigo-400 hover:text-indigo-700 text-xs font-bold"
+                title="Clear filter"
+              >
+                ×
+              </button>
+            </div>
+          ) : (
+            <span className="badge badge-neutral text-xs py-1">
+              <span>All Indexed Documents</span>
             </span>
           )}
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      {/* Messages Stream */}
+      <div className="flex-1 overflow-y-auto px-4 py-6 lg:px-8 space-y-6">
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center text-[var(--color-text-muted)]">
-            <Sparkles size={64} className="mb-4 opacity-30" />
-            <h3 className="text-lg font-medium text-[var(--color-text)] mb-2">Start a conversation</h3>
-            <p className="max-w-md">Ask a question about your documents. I'll search through them and provide a grounded answer with citations.</p>
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md">
+          <div className="flex flex-col items-center justify-center h-full max-w-xl mx-auto text-center py-8">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-4 shadow-sm">
+              <Sparkles size={28} />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 mb-1 tracking-tight">
+              Ask your Knowledge Base
+            </h3>
+            <p className="text-xs text-[var(--color-text-muted)] max-w-md mb-6 leading-relaxed">
+              Every answer is synthesized directly from verified passages in your documents with strict passage-level citations and similarity checks.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full text-left">
               {[
-                'What are the main topics in my documents?',
-                'Summarize the key findings',
-                'What methods are described?',
-                'Are there any limitations mentioned?',
+                'What are the main topics across my documents?',
+                'Summarize the core technical findings and results',
+                'What methodologies and architecture are proposed?',
+                'What constraints or limitations are highlighted?',
               ].map((suggestion) => (
                 <button
                   key={suggestion}
@@ -157,100 +189,170 @@ export function Chat() {
                     setInput(suggestion)
                     inputRef.current?.focus()
                   }}
-                  className="text-left p-3 border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-background)] transition-colors text-sm"
+                  className="p-3 bg-slate-50 hover:bg-indigo-50/60 border border-slate-200 hover:border-indigo-200 rounded-xl transition-all text-xs text-slate-700 font-medium group"
                 >
-                  {suggestion}
+                  <span className="group-hover:text-indigo-600 transition-colors">{suggestion}</span>
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {messages.map((message, index) => (
-          <div key={index} className="flex gap-3 max-w-4xl mx-auto w-full">
+        {messages.map((message, msgIdx) => (
+          <div
+            key={msgIdx}
+            className={clsx(
+              'flex gap-3 max-w-4xl mx-auto w-full transition-opacity',
+              message.role === 'user' ? 'justify-end' : 'justify-start'
+            )}
+          >
+            {message.role === 'assistant' && (
+              <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 shadow-xs mt-0.5">
+                <Bot size={16} />
+              </div>
+            )}
+
             <div
               className={clsx(
-                'w-8 flex-shrink-0 flex items-center justify-center text-sm font-medium rounded-full',
-                message.role === 'user'
-                  ? 'bg-[var(--color-primary)] text-white'
-                  : 'bg-[var(--color-primary-light)] text-[var(--color-primary)]'
+                'min-w-0',
+                message.role === 'user' ? 'max-w-2xl' : 'flex-1'
               )}
             >
-              {message.role === 'user' ? 'You' : 'KIP'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className={clsx('prose prose-sm max-w-none markdown-content', message.refused && 'opacity-70')}>
-                <ReactMarkdown>{message.content}</ReactMarkdown>
-              </div>
+              {message.role === 'user' ? (
+                <div className="p-3.5 px-4 bg-slate-900 text-white rounded-2xl rounded-tr-xs text-sm shadow-xs leading-relaxed font-normal">
+                  {message.content}
+                </div>
+              ) : (
+                <div className="card p-5 border border-slate-200 bg-[var(--color-surface)] shadow-xs rounded-2xl rounded-tl-xs space-y-3">
+                  {/* Markdown Answer */}
+                  <div className="markdown-content text-sm">
+                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                  </div>
 
-              {/* Citations */}
-              {message.citations && message.citations.length > 0 && (
-                <div className="mt-3 space-y-2">
-                  {message.citations.map((citation, citeIndex) => (
-                    <div
-                      key={citeIndex}
-                      className={clsx(
-                        'source-passage cursor-pointer',
-                        showSources === citeIndex ? 'ring-2 ring-[var(--color-primary)]' : ''
-                      )}
-                      onClick={() => setShowSources(showSources === citeIndex ? null : citeIndex)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="source-passage-marker">[{citation.marker}]</span>
-                          <span className="font-medium text-sm">{citation.document_label}</span>
-                          {citation.page_start && (
-                            <span className="text-xs text-[var(--color-text-muted)]">
-                              p. {citation.page_start}{citation.page_end && citation.page_end !== citation.page_start ? `-${citation.page_end}` : ''}
-                            </span>
-                          )}
-                          {citation.section_path.length > 0 && (
-                            <span className="text-xs text-[var(--color-text-muted)]">
-                              {' > '}{citation.section_path.join(' > ')}
-                            </span>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => handleCopy(citation.text, citation.marker)}
-                          className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] rounded transition-colors"
-                          title={copiedCitation === citation.marker ? 'Copied!' : 'Copy passage'}
-                        >
-                          {copiedCitation === citation.marker ? <Check size={16} /> : <Copy size={16} />}
-                        </button>
+                  {/* Refusal Explanations */}
+                  {message.refused && message.explanation && (
+                    <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs">
+                      <div className="flex items-center gap-1.5 font-semibold text-amber-900 mb-1">
+                        <AlertCircle size={14} className="text-amber-600" />
+                        <span>Evidence Gate Notice</span>
                       </div>
-                      {showSources === citeIndex && (
-                        <div className="mt-2 p-3 bg-[var(--color-background)] rounded-md text-sm border border-[var(--color-border)]">
-                          {citation.text}
-                        </div>
+                      <p className="leading-relaxed">{message.explanation}</p>
+                    </div>
+                  )}
+
+                  {/* Citations & Verified Sources */}
+                  {message.citations && message.citations.length > 0 && (
+                    <div className="pt-3 border-t border-[var(--color-border)] space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                          <Layers size={13} className="text-indigo-600" />
+                          <span>Sources & Citations ({message.citations.length})</span>
+                        </span>
+                      </div>
+
+                      <div className="space-y-2">
+                        {message.citations.map((citation, citeIdx) => {
+                          const isExpanded =
+                            expandedCitation?.msgIdx === msgIdx && expandedCitation?.citeIdx === citeIdx
+                          const citeKey = `${msgIdx}-${citation.marker}`
+                          const isCopied = copiedCitation === citeKey
+
+                          return (
+                            <div
+                              key={citeIdx}
+                              className={clsx(
+                                'border rounded-xl transition-all overflow-hidden',
+                                isExpanded
+                                  ? 'border-indigo-300 bg-indigo-50/20 shadow-xs'
+                                  : 'border-slate-200 bg-slate-50/60 hover:bg-slate-50'
+                              )}
+                            >
+                              <div
+                                className="flex items-center justify-between p-2.5 px-3 cursor-pointer select-none"
+                                onClick={() => toggleCitation(msgIdx, citeIdx)}
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="source-passage-marker">
+                                    [{citation.marker}]
+                                  </span>
+                                  <span className="font-semibold text-xs text-slate-900 truncate">
+                                    {citation.document_label}
+                                  </span>
+                                  {citation.page_start && (
+                                    <span className="badge badge-neutral text-[10px] py-0 px-1.5">
+                                      p. {citation.page_start}
+                                      {citation.page_end && citation.page_end !== citation.page_start
+                                        ? `-${citation.page_end}`
+                                        : ''}
+                                    </span>
+                                  )}
+                                  {citation.section_path && citation.section_path.length > 0 && (
+                                    <span className="hidden sm:inline-block text-[11px] text-[var(--color-text-muted)] truncate max-w-xs">
+                                      › {citation.section_path.join(' › ')}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  {citation.score !== undefined && (
+                                    <span className="text-[10px] font-mono text-slate-500 bg-white border border-slate-200 px-1.5 py-0.5 rounded">
+                                      {(citation.score * 100).toFixed(0)}% match
+                                    </span>
+                                  )}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleCopy(citation.text, citeKey)
+                                    }}
+                                    className="p-1 text-slate-400 hover:text-indigo-600 rounded transition-colors"
+                                    title={isCopied ? 'Copied!' : 'Copy passage'}
+                                    aria-label="Copy citation text"
+                                  >
+                                    {isCopied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                                  </button>
+                                  {isExpanded ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
+                                </div>
+                              </div>
+
+                              {isExpanded && (
+                                <div className="p-3 pt-0 border-t border-indigo-100 bg-white text-xs leading-relaxed text-slate-700 font-sans mt-2">
+                                  <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 font-mono text-[11px] text-slate-800 whitespace-pre-wrap max-h-48 overflow-y-auto">
+                                    {citation.text}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Metadata Footer */}
+                  {!message.refused && (message.groundedness !== undefined || message.total_ms || message.usage) && (
+                    <div className="flex flex-wrap items-center gap-3 pt-2 text-[11px] text-[var(--color-text-muted)] border-t border-[var(--color-border-subtle)]">
+                      {message.groundedness !== undefined && (
+                        <span className="inline-flex items-center gap-1 text-emerald-700 font-medium bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                          <Sparkles size={11} className="text-emerald-600" />
+                          <span>Groundedness: {(message.groundedness * 100).toFixed(0)}%</span>
+                        </span>
+                      )}
+                      {message.total_ms && (
+                        <span className="inline-flex items-center gap-1">
+                          <Clock size={11} />
+                          <span>Latency: {formatTime(message.total_ms)}</span>
+                        </span>
+                      )}
+                      {message.usage && (
+                        <span className="inline-flex items-center gap-1">
+                          <Layers size={11} />
+                          <span>
+                            Tokens: {message.usage.total_tokens || message.usage.prompt_tokens + message.usage.completion_tokens}
+                          </span>
+                        </span>
                       )}
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Metadata */}
-              {!message.refused && (message.groundedness !== undefined || message.total_ms) && (
-                <div className="mt-3 flex items-center gap-4 text-xs text-[var(--color-text-muted)]">
-                  {message.groundedness !== undefined && (
-                    <span className="flex items-center gap-1">
-                      <Sparkles size={12} />
-                      Groundedness: {(message.groundedness * 100).toFixed(0)}%
-                    </span>
                   )}
-                  {message.total_ms && (
-                    <span>Response time: {formatTime(message.total_ms)}</span>
-                  )}
-                  {message.usage && (
-                    <span>Tokens: {message.usage.total_tokens || message.usage.prompt_tokens + message.usage.completion_tokens}</span>
-                  )}
-                </div>
-              )}
-
-              {/* Refusal */}
-              {message.refused && message.explanation && (
-                <div className="mt-3 p-3 bg-[var(--color-error)]/10 border border-[var(--color-error)]/20 rounded-lg text-[var(--color-error)] text-sm">
-                  <p className="font-medium mb-1">Could not answer</p>
-                  <p>{message.explanation}</p>
                 </div>
               )}
             </div>
@@ -259,36 +361,46 @@ export function Chat() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <form onSubmit={handleSend} className="p-4 border-t border-[var(--color-border)] bg-[var(--color-surface)]">
-        <div className="flex items-end gap-3 max-w-4xl mx-auto w-full">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={selectedDocIds.length > 0 ? `Ask about selected documents...` : 'Ask a question...'}
-            className="flex-1 input resize-none min-h-[48px] max-h-40"
-            rows={1}
-            disabled={loading}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                handleSend(e)
+      {/* Input Area */}
+      <div className="p-4 border-t border-[var(--color-border)] bg-[var(--color-surface)]">
+        <form onSubmit={handleSend} className="max-w-4xl mx-auto w-full">
+          <div className="flex items-end gap-2.5 bg-slate-50 border border-slate-300 rounded-2xl p-2 focus-within:border-[var(--color-primary)] focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={
+                selectedDocIds.length > 0
+                  ? `Ask question about ${selectedDocIds.length} selected document(s)...`
+                  : 'Ask any question about your indexed knowledge base...'
               }
-            }}
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || loading}
-            className="btn btn-primary h-[48px] px-6 flex-shrink-0"
-          >
-            {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-          </button>
-        </div>
-        <p className="text-xs text-[var(--color-text-muted)] mt-2 text-center">
-          Press <kbd className="px-1.5 py-0.5 bg-[var(--color-background)] border border-[var(--color-border)] rounded">Enter</kbd> to send, <kbd className="px-1.5 py-0.5 bg-[var(--color-background)] border border-[var(--color-border)] rounded">Shift+Enter</kbd> for new line
-        </p>
-      </form>
+              className="flex-1 bg-transparent border-0 resize-none min-h-[44px] max-h-36 p-1.5 px-2.5 text-xs lg:text-sm text-slate-900 focus:outline-none"
+              rows={1}
+              disabled={loading}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSend(e)
+                }
+              }}
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || loading}
+              className="btn btn-primary h-10 w-10 p-0 rounded-xl flex-shrink-0 flex items-center justify-center"
+              aria-label="Send message"
+            >
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+            </button>
+          </div>
+          <div className="flex items-center justify-between mt-2 px-1 text-[11px] text-[var(--color-text-muted)]">
+            <span>
+              Press <kbd className="px-1 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-mono">Enter</kbd> to ask, <kbd className="px-1 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-mono">Shift + Enter</kbd> for newline
+            </span>
+            <span className="hidden sm:inline">Attributed with citation markers</span>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
