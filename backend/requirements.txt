@@ -1,6 +1,6 @@
 # Core dependencies (matches pyproject.toml [project.dependencies])
 fastapi==0.112.0
-uvicorn[standard]==0.30.6
+uvicorn[standard]==0.52.4
 pydantic==2.8.2
 pydantic-settings==2.3.4
 email-validator==2.2.0
