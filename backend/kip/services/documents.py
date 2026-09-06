@@ -85,7 +85,7 @@ class DocumentService:
                 KeywordDocument(
                     id=f"{doc_id}:{c.index}",
                     text=c.body,
-                    payload={"document_id": doc_id, "chunk_index": c.index},
+                    payload={"document_id": doc_id, "chunk_index": c.index, "user_id": owner_id},
                 )
                 for c in chunks
             ]
@@ -240,6 +240,61 @@ class DocumentService:
                 pass
 
             return True
+
+    async def sync_indexes(self) -> dict[str, int]:
+        """Synchronize vector store and keyword index with the relational database.
+
+        Removes orphaned vector/keyword entries from deleted or missing documents,
+        and ensures all valid document chunks are indexed with owner user_id.
+        """
+        async with session_module.get_session() as session:
+            from sqlalchemy import select
+            from kip.db.session import Document, Chunk
+
+            stmt_docs = select(Document.id, Document.owner_id)
+            doc_rows = (await session.execute(stmt_docs)).all()
+            valid_doc_map = {row.id: row.owner_id for row in doc_rows}
+            valid_doc_ids = set(valid_doc_map.keys())
+
+            synced_keywords = 0
+            if self._keyword_index:
+                stmt_chunks = select(Chunk).order_by(Chunk.document_id, Chunk.chunk_index)
+                chunks = (await session.execute(stmt_chunks)).scalars().all()
+                from kip.core.retrieval.keyword import KeywordDocument
+                kw_docs = [
+                    KeywordDocument(
+                        id=c.id,
+                        text=c.body,
+                        payload={
+                            "document_id": c.document_id,
+                            "chunk_index": c.chunk_index,
+                            "user_id": valid_doc_map.get(c.document_id),
+                        },
+                    )
+                    for c in chunks
+                    if c.document_id in valid_doc_map
+                ]
+                self._keyword_index.rebuild(kw_docs)
+                synced_keywords = len(kw_docs)
+
+            orphans_removed = 0
+            if hasattr(self._vector_store, "_connection") and valid_doc_ids:
+                try:
+                    placeholders = ",".join("?" for _ in valid_doc_ids)
+                    cur = self._vector_store._connection.execute(
+                        f"DELETE FROM vectors WHERE json_extract(payload, '$.document_id') NOT IN ({placeholders})",
+                        list(valid_doc_ids),
+                    )
+                    self._vector_store._connection.commit()
+                    orphans_removed = cur.rowcount if cur else 0
+                except Exception:
+                    pass
+
+            return {
+                "valid_documents": len(valid_doc_ids),
+                "synced_keywords": synced_keywords,
+                "orphans_removed": orphans_removed,
+            }
 
     async def get_chunk_texts(self, chunk_ids: list[str]) -> dict[str, str]:
         async with session_module.get_session() as session:

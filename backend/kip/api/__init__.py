@@ -17,6 +17,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings = get_settings()
     init_db()
     await create_tables()
+    try:
+        from kip.services.documents import DocumentService
+        doc_service = DocumentService()
+        await doc_service.sync_indexes()
+    except Exception:
+        pass
     yield
     await close_db()
 
