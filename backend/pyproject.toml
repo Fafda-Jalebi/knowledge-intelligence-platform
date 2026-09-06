@@ -39,7 +39,7 @@ dev = [
     "pytest-cov==5.0.0",
     "mypy==1.11.2",
     "types-requests>=2.32.0",
-    "ruff==0.5.7",
+    "ruff==0.16.5",
 ]
 
 [tool.ruff]
