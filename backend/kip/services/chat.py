@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Sequence
 
 from kip.config import get_settings
-from kip.core import RagPipeline, RagPipeline
+from kip.core import RagPipeline
 from kip.core.embeddings import get_embedder
 from kip.core.llm import get_llm_client
 from kip.core.rerank import get_reranker
@@ -78,6 +78,15 @@ class ChatService:
         min_score: float | None = None,
     ) -> ChatAnswer:
         """Answer a question, optionally within a conversation."""
+        if document_ids:
+            async with get_session() as session:
+                from kip.db.repositories import DocumentRepository
+
+                documents = DocumentRepository(session)
+                for document_id in set(document_ids):
+                    if not await documents.get_by_id(document_id, user_id):
+                        raise ValueError("Document not found or access denied.")
+
         # Get history if conversation specified
         history = []
         conv_id = conversation_id

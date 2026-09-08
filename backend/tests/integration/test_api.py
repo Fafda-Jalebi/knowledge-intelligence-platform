@@ -5,6 +5,8 @@ from datetime import datetime
 import pytest
 from httpx import AsyncClient, ASGITransport
 from kip.api import app
+from kip.config import get_settings
+from kip.security.tokens import encode
 
 
 @pytest.fixture
@@ -30,6 +32,33 @@ async def auth_headers(auth_token: str):
 
 
 class TestAuthFlow:
+    async def test_token_for_missing_user_is_rejected(self, client: AsyncClient):
+        token = encode(
+            {"sub": "999999"},
+            get_settings().jwt_secret,
+            expires_in=60,
+            issuer="kip",
+        )
+        resp = await client.get(
+            "/api/settings",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 401
+
+    async def test_token_for_deactivated_user_is_rejected(
+        self, client: AsyncClient, auth_headers
+    ):
+        from kip.db.repositories import UserRepository
+        from kip.db.session import get_session
+
+        async with get_session() as session:
+            user = await UserRepository(session).get_by_email("test@example.com")
+            assert user is not None
+            user.is_active = False
+
+        resp = await client.get("/api/settings", headers=auth_headers)
+        assert resp.status_code == 401
+
     async def test_register_and_login(self, client: AsyncClient):
         # Register
         resp = await client.post("/api/auth/register", json={
@@ -97,6 +126,16 @@ class TestAuthFlow:
 
 
 class TestDocumentsFlow:
+    async def test_upload_size_is_bounded_before_ingestion(
+        self, client: AsyncClient, auth_headers, monkeypatch
+    ):
+        import kip.api.routers.documents as documents_router
+
+        monkeypatch.setattr(documents_router.doc_service._settings, "max_upload_mb", 1)
+        files = {"file": ("large.txt", b"x" * (1024 * 1024 + 1), "text/plain")}
+        resp = await client.post("/api/documents/upload", headers=auth_headers, files=files)
+        assert resp.status_code == 413
+
     async def test_upload_document(self, client: AsyncClient, auth_headers):
         # Create a simple text file
         content = b"This is a test document about mango drying at 60 degrees."
@@ -181,6 +220,27 @@ class TestDocumentsFlow:
 
 
 class TestChatFlow:
+    async def test_document_filter_is_scoped_to_owner(self, client: AsyncClient, auth_headers):
+        upload = await client.post(
+            "/api/documents/upload",
+            headers=auth_headers,
+            files={"file": ("private.txt", b"Private owner-only text.", "text/plain")},
+        )
+        doc_id = upload.json()["id"]
+        other = await client.post(
+            "/api/auth/register",
+            json={"email": "chat-other@example.com", "password": "OtherStrong-2024!Pass"},
+        )
+        other_headers = {"Authorization": f"Bearer {other.json()['access_token']}"}
+
+        resp = await client.post(
+            "/api/chat/ask",
+            headers=other_headers,
+            json={"question": "What is private?", "document_ids": [doc_id]},
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Document not found or access denied."
+
     async def test_ask_question(self, client: AsyncClient, auth_headers):
         # First upload a document
         content = b"Mango slices are dried at 60 C for eight hours. Water activity below 0.6 prevents mold."
@@ -254,6 +314,10 @@ class TestChatFlow:
 
 
 class TestSettings:
+    async def test_provider_metadata_requires_authentication(self, client: AsyncClient):
+        resp = await client.get("/api/settings/embedding-providers")
+        assert resp.status_code == 401
+
     async def test_get_settings(self, client: AsyncClient, auth_headers):
         resp = await client.get("/api/settings", headers=auth_headers)
         assert resp.status_code == 200

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -10,6 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from kip.config import get_settings
 from kip.db.session import close_db, create_tables, init_db
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -22,7 +25,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         doc_service = DocumentService()
         await doc_service.sync_indexes()
     except Exception:
-        pass
+        logger.exception("Index synchronization failed during startup")
     yield
     await close_db()
 
@@ -37,16 +40,14 @@ def create_app() -> FastAPI:
         redoc_url="/redoc" if not settings.is_production else None,
     )
 
-    # CORS
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
     )
 
-    # Include routers
     from kip.api.routers import auth, documents, chat, health, settings as settings_router
 
     app.include_router(health.router, prefix="/api", tags=["health"])

@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: kip
       POSTGRES_USER: kip
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kip_secret_change_me}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -46,10 +46,10 @@ services:
       - "8000:8000"
     environment:
       - APP_ENV=production
-      - DATABASE_URL=postgresql://kip:${POSTGRES_PASSWORD:-kip_secret_change_me}@postgres:5432/kip
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL must be set}
       - VECTOR_STORE=qdrant
       - QDRANT_URL=http://qdrant:6333
-      - JWT_SECRET=${JWT_SECRET}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set}
       - ALLOW_REGISTRATION=true
       - CORS_ORIGINS=http://localhost,http://127.0.0.1,http://frontend
       - EMBEDDING_PROVIDER=hashing

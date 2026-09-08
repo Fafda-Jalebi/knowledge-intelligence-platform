@@ -4,18 +4,16 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from pydantic import BaseModel, Field
 
+from kip.api.routers.auth import get_current_user_id
+from kip.config import get_settings
 from kip.errors import PayloadTooLargeError, UnsupportedMediaTypeError
-from kip.services.auth import AuthService
 from kip.services.documents import DocumentService
 
 router = APIRouter()
 doc_service = DocumentService()
-auth_service = AuthService()
-security = HTTPBearer(auto_error=False)
 logger = logging.getLogger(__name__)
 
 
@@ -28,7 +26,7 @@ class DocumentResponse(BaseModel):
     status: str
     created_at: str
     size_bytes: int
-    warnings: list[str] = []
+    warnings: list[str] = Field(default_factory=list)
 
 
 class DocumentListResponse(BaseModel):
@@ -42,21 +40,14 @@ class DeleteResponse(BaseModel):
     message: str
 
 
-async def get_current_user_id(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> int:
-    """Extract and validate user ID from bearer token."""
-    from kip.api.routers.auth import get_current_user_id as _get_current_user_id
-    return await _get_current_user_id(credentials)
-
-
 @router.post("/upload", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
 async def upload_document(
     file: UploadFile = File(...),
     user_id: int = Depends(get_current_user_id),
 ) -> DocumentResponse:
     """Upload and ingest a document."""
-    content = await file.read()
+    max_bytes = get_settings().max_upload_bytes
+    content = await file.read(max_bytes + 1)
     if not content:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty file")
 
@@ -90,8 +81,8 @@ async def upload_document(
 
 @router.get("", response_model=DocumentListResponse)
 async def list_documents(
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     status_filter: str | None = None,
     user_id: int = Depends(get_current_user_id),
 ) -> DocumentListResponse:
@@ -144,8 +135,8 @@ async def get_document(
 @router.get("/{doc_id}/chunks")
 async def get_document_chunks(
     doc_id: str,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     user_id: int = Depends(get_current_user_id),
 ) -> dict:
     """Get chunks for a document."""

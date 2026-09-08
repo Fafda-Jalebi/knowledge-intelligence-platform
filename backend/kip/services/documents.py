@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Sequence
 
 from kip.config import get_settings
@@ -15,7 +14,7 @@ from kip.core.vectorstore import get_vector_store, records_from_chunks
 from kip.db.repositories import ChunkRepository, DocumentRepository
 from kip.db import session as session_module
 from kip.db.session import Chunk, Document
-from kip.security.files import sanitise_filename, storage_key, validate_upload, PayloadTooLargeError, UnsupportedMediaTypeError
+from kip.security.files import safe_delete, storage_key, validate_upload, write_bytes
 
 
 @dataclass(slots=True)
@@ -60,14 +59,14 @@ class DocumentService:
 
         # Generate IDs and paths
         doc_id = uuid.uuid4().hex[:12]
-        storage_path = self._storage_root / storage_key(ext)
+        storage_path = self._storage_root / f"u{owner_id}" / storage_key(ext)
         storage_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Write file
-        storage_path.write_bytes(content)
+        write_bytes(storage_path, content)
 
         # Extract
-        extracted = extract_document(filename, content)
+        extracted = extract_document(safe_name, content)
         warnings = list(extracted.warnings)
 
         # Chunk
@@ -100,7 +99,7 @@ class DocumentService:
             doc = await doc_repo.create(
                 doc_id=doc_id,
                 owner_id=owner_id,
-                filename=filename,
+                filename=safe_name,
                 safe_name=safe_name,
                 content_type=content_type or f"application/{ext}",
                 size_bytes=len(content),
@@ -109,8 +108,7 @@ class DocumentService:
 
             # Build chunk records
             chunk_records = []
-            vector_records = []
-            for chunk, vector in zip(chunks, vectors):
+            for chunk in chunks:
                 chunk_record = Chunk(
                     id=f"{doc_id}:{chunk.index}",
                     document_id=doc_id,
@@ -153,7 +151,7 @@ class DocumentService:
 
         return IngestionResult(
             document_id=doc_id,
-            filename=filename,
+            filename=safe_name,
             title=extracted.metadata.title,
             page_count=extracted.page_count,
             chunk_count=len(chunks),
@@ -235,7 +233,7 @@ class DocumentService:
 
             # Delete file from storage
             try:
-                Path(doc.storage_path).unlink(missing_ok=True)
+                safe_delete(doc.storage_path, root=self._storage_root)
             except OSError:
                 pass
 

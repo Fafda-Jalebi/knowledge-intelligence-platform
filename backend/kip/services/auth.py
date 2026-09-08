@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import timedelta
-
 from kip.config import get_settings
 from kip.db.repositories import UserRepository
 from kip.db.session import get_session

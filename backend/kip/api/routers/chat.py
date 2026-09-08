@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from typing import Optional
-
 from kip.api.routers.auth import get_current_user_id
 from kip.services.chat import ChatService
 
@@ -18,10 +16,10 @@ logger = logging.getLogger(__name__)
 
 class AskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
-    conversation_id: Optional[int] = None
-    document_ids: list[str] = []
-    mode: Optional[str] = None
-    min_score: Optional[float] = None
+    conversation_id: int | None = None
+    document_ids: list[str] = Field(default_factory=list, max_length=100)
+    mode: str | None = None
+    min_score: float | None = Field(default=None, ge=0, le=1)
 
 
 class CitationResponse(BaseModel):
@@ -117,8 +115,8 @@ async def ask_question(
 
 @router.get("/conversations", response_model=list[ConversationResponse])
 async def list_conversations(
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     user_id: int = Depends(get_current_user_id),
 ) -> list[ConversationResponse]:
     """List user's conversations."""
@@ -153,7 +151,7 @@ async def delete_conversation(
 @router.patch("/conversations/{conversation_id}")
 async def update_conversation_title(
     conversation_id: int,
-    title: str,
+    title: str = Query(min_length=1, max_length=200),
     user_id: int = Depends(get_current_user_id),
 ) -> dict:
     """Update conversation title."""
@@ -164,6 +162,8 @@ async def update_conversation_title(
 
 
 @router.get("/pipeline/config")
-async def get_pipeline_config() -> dict:
+async def get_pipeline_config(
+    user_id: int = Depends(get_current_user_id),
+) -> dict:
     """Get the active pipeline configuration."""
     return chat_service.describe_pipeline()

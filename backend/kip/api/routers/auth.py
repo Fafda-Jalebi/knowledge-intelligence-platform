@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, EmailStr, Field
 
@@ -25,7 +25,7 @@ class RegisterRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(max_length=128)
 
 
 class TokenResponse(BaseModel):
@@ -85,13 +85,26 @@ async def get_current_user_id(
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
     sub = claims.get("sub")
-    if not sub:
+    try:
+        user_id = int(sub)
+    except (TypeError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return int(sub)
+    from kip.db.repositories import UserRepository
+    from kip.db.session import get_session
+
+    async with get_session() as session:
+        user = await UserRepository(session).get_by_id(user_id)
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user_id
 
 
 @router.get("/me", response_model=UserResponse)
