@@ -1,5 +1,12 @@
 # Knowledge Intelligence Platform (KIP)
 
+<p align="left">
+  <a href="https://github.com/Om-Talaviya"><img src="https://img.shields.io/badge/Architect-Om%20Talaviya-38bdf8?style=flat-square&logo=github&logoColor=white" alt="Author" /></a>
+  <img src="https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/Vector%20DB-Qdrant-dc2626?style=flat-square" alt="Qdrant" />
+  <img src="https://img.shields.io/badge/Retrieval-Hybrid%20Dense%2BSparse-0284c7?style=flat-square" alt="Hybrid Retrieval" />
+</p>
+
 A production-ready, open-source Knowledge Intelligence Platform for document ingestion, semantic search, and grounded question-answering with citations.
 
 ## Features
