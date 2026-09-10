@@ -1,4 +1,4 @@
-# Knowledge Intelligence Platform (KIP)
+# Agentic Multimodal Research Platform
 
 <p align="left">
   <a href="https://github.com/Om-Talaviya"><img src="https://img.shields.io/badge/Architect-Om%20Talaviya-38bdf8?style=flat-square&logo=github&logoColor=white" alt="Author" /></a>
@@ -7,275 +7,154 @@
   <img src="https://img.shields.io/badge/Retrieval-Hybrid%20Dense%2BSparse-0284c7?style=flat-square" alt="Hybrid Retrieval" />
 </p>
 
-A production-ready, open-source Knowledge Intelligence Platform for document ingestion, semantic search, and grounded question-answering with citations.
+A production-grade, multi-agent AI research operating system that takes complex research questions, investigates across multiple modalities (text, PDFs, documents, images, web), retrieves relevant knowledge, reasons, critiques evidence, and produces structured, evidence-backed research reports with verifiable citations in real time.
 
-## Features
+> **Key Distinction**: *This is not just a chatbot.* It is an **Autonomous AI Research Operating System** designed around specialized agent collaboration (`Plan → Investigate → Retrieve → Reason → Critique → Synthesize → Report`) rather than single-prompt LLM calls.
 
-- **Document Ingestion**: PDF, DOCX, TXT, Markdown support with structure-aware chunking
-- **Hybrid Retrieval**: Dense (semantic) + sparse (keyword) search with Reciprocal Rank Fusion
-- **Reranking**: Heuristic, cross-encoder, and LLM-based rerankers
-- **Grounded Generation**: Extractive (default) and generative LLM backends with citation enforcement
-- **Evidence Gates**: Pre-generation similarity threshold and post-generation support checking
-- **Citation Integrity**: Every answer traces to source passages; invented markers are removed
-- **Multi-document Reasoning**: Answers can synthesize across multiple documents
-- **Conversation History**: Persistent chat sessions with context
-- **Authentication**: JWT-based auth with registration, login, password change
-- **Zero-dependency Default**: Runs entirely offline with hashing embeddings and extractive generation
-- **Production Ready**: PostgreSQL, Qdrant, Docker Compose, comprehensive test suite
+---
 
-## Quick Start
+## 🏛️ System Architecture Overview
 
-### Prerequisites
+```mermaid
+flowchart TB
+    User([User]) --> WebClient["Web Platform (React 18 + TS + Vite)"]
+    WebClient -->|REST & Authenticated WebSockets| API["FastAPI API Gateway"]
 
-- Docker & Docker Compose
-- Or Python 3.10+ and Node.js 20+ for local development
+    subgraph AuthSecurity["Authentication & Platform Infra"]
+        Auth["JWT Auth & RBAC (Admin, Researcher, Viewer)"]
+        UsageQuotas["Persistent Usage Records & Quota Engine"]
+        DB[(PostgreSQL / SQLite Database)]
+    end
 
-### With Docker (Recommended)
+    subgraph AIInfrastructure["AI Infrastructure Layer"]
+        ModelRegistry["Model Registry (Capabilities & Limits)"]
+        ModelRouter["Intelligent Model Router"]
+        ModelGateway["Model Gateway (Fallback & Telemetry)"]
+        Providers["Providers: Gemini, Local Ollama, OpenAI, Anthropic"]
+    end
 
-```bash
-# Clone the repository
-git clone <repository-url>
-cd knowledge-intelligence-platform
+    subgraph ResearchEngine["Agentic Research Engine"]
+        Orchestrator["Agent Orchestrator (DAG Execution)"]
+        Planner["Planner Agent"]
+        WebAgent["Web Research Agent (SSRF-Hardened)"]
+        DocAgent["Document Research Agent"]
+        Critic["Critic Agent (Contradiction & Evidence Check)"]
+        Synthesis["Synthesis & Report Agent"]
+    end
 
-# Copy environment file and customize
-cp .env.example .env
-# Edit .env - at minimum set JWT_SECRET (generate: python -c "import secrets;print(secrets.token_urlsafe(48))")
+    subgraph KnowledgeLayer["Multimodal Knowledge & RAG Layer"]
+        Ingestion["Multimodal Ingestion (PDF, DOCX, TXT, MD, Images)"]
+        Chunker["Structure-Aware Chunking Engine"]
+        HybridRetriever["Hybrid Retriever (Dense Vector + BM25 Lexical)"]
+        RRF["Reciprocal Rank Fusion (RRF)"]
+        VectorStore[(ChromaDB / Qdrant / SQLite Vector)]
+    end
 
-# Start all services
-docker compose up -d
+    API --> AuthSecurity
+    API --> AIInfrastructure
+    API --> ResearchEngine
+    API --> KnowledgeLayer
 
-# Access the application
-# Frontend: http://localhost
-# API Docs: http://localhost:8000/docs
+    Orchestrator --> Planner
+    Planner --> WebAgent
+    Planner --> DocAgent
+    DocAgent --> HybridRetriever
+    HybridRetriever --> VectorStore
+    WebAgent & DocAgent --> Critic
+    Critic --> Synthesis
+    Synthesis --> API
 ```
 
-### Local Development
+---
+
+## 🚀 Key Platform Features
+
+- **Multi-Agent Research Pipeline**: Coordinated workflow across `Planner → Web/Doc Agents → Critic → Synthesis → Report`.
+- **Multimodal Ingestion**: Automated parsing for PDF (with table extraction), DOCX, TXT, Markdown, and Images (Vision analysis via Model Gateway).
+- **Hybrid Retrieval & RRF**: Dense semantic search combined with BM25 keyword matching via Reciprocal Rank Fusion ($k=60$).
+- **Intelligent Model Routing (Phase 8A)**:
+  - Dynamic model selection based on task requirement: fast/cheap models for classification, reasoning models for planning/critique, vision models for image analysis, large-context models for synthesis.
+- **Persistent Usage & Quota Engine (Phase 8B)**:
+  - Real-time token and cost tracking with transactional row locking to eliminate quota oversubscription under heavy concurrency.
+  - Quota-aware model fallback.
+- **Evidence Gating & Citation Integrity**:
+  - Full provenance for every claim with interactive citation badges (`[1]`, `[2]`), confidence scoring, and source passage inspectors.
+  - Automatic pruning of ungrounded statements.
+- **Real-Time WebSocket Streaming**: Live progress broadcasts (`Planning... → Searching... → Analyzing... → Critiquing... → Synthesizing... → Completed`).
+
+---
+
+## 📊 Current Project Status & Completed Phases
+
+| Phase | Milestone | Status | Key Deliverables |
+| :--- | :--- | :--- | :--- |
+| **Phase 1** | Foundation | 🟢 COMPLETE | FastAPI backend, React/TS/Vite frontend, shared packages, tests, Docker. |
+| **Phase 2** | Research MVP | 🟢 COMPLETE | DAG task execution, Planner/Report agents, synthesis, streaming. |
+| **Phase 3** | Multimodal Ingestion | 🟢 COMPLETE | PDF, DOCX, TXT, Markdown, and image vision processing pipeline. |
+| **Phase 4** | Agentic System | 🟢 COMPLETE | Tool registry, SSRF-hardened web fetch, search tools, Critic agent. |
+| **Phase 5** | RAG / Knowledge Core | 🟢 COMPLETE | Hybrid RRF retriever, BM25, ChromaDB/SQLite vector stores, citations. |
+| **Phase 6** | Production & Security | 🟢 COMPLETE | JWT auth, RBAC, prompt injection security filters, Prometheus metrics. |
+| **Phase 7** | Application Maturity | 🟢 COMPLETE | Dashboard mapping fix, persistent users, Gemini provider alignment. |
+| **Phase 8A** | Intelligent Model Routing | 🟢 COMPLETE | `ModelRegistry`, `ModelRouter`, `ModelGateway`, capability-based dispatch. |
+| **Phase 8B** | Usage & Quota Tracking | 🟢 COMPLETE | Persistent `UsageRecord`, `UserQuota`, concurrency row locking, user attribution. |
+| **Phase 9** | **Knowledge Automation** | 🟡 **NEXT** | Automatic ingestion-to-research bridge & planner knowledge integration. |
+
+---
+
+## 🛠️ Quick Start
+
+### Prerequisites
+- Docker & Docker Compose
+- Python 3.10+ and Node.js 20+ (for local development)
+- Ollama (optional for local models)
+
+### 1. Run with Docker Compose (Recommended)
+```bash
+# Clone the repository
+git clone <repo-url>
+cd knowledge-intelligence-platform
+
+# Copy environment template
+cp .env.example .env
+
+# Launch services
+docker compose up -d
+
+# Frontend: http://localhost:3000 (or http://localhost:5173)
+# Backend API & Docs: http://localhost:8000/docs
+```
+
+### 2. Local Development
 
 #### Backend
-
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -e .[dev,embeddings]
 
-# Set environment variables
-cp ../.env.example .env
-# Edit .env
+# Run tests
+pytest tests/ -v
 
-# Database tables are created at application startup from the SQLAlchemy models.
-# Alembic is installed but no migration revisions are shipped.
-# DO NOT run `alembic upgrade head` - tables are auto-created on startup.
-
-# Start the API server
+# Start FastAPI server
 uvicorn kip.api:app --reload --host 0.0.0.0 --port 8000
 ```
 
 #### Frontend
-
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-## Architecture
+---
 
-![Knowledge Intelligence Platform Architecture](docs/architecture.png)
+## 🗺️ Long-Term Evolution: AI Research Operating System
 
-## Configuration
-
-All configuration is via environment variables (`.env` file). Key settings:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `APP_ENV` | `development` | `development` or `production` |
-| `DATABASE_URL` | `sqlite:///./var/kip.sqlite3` | SQLite or PostgreSQL |
-| `VECTOR_STORE` | `sqlite` | `memory`, `sqlite`, `qdrant` |
-| `EMBEDDING_PROVIDER` | `hashing` | `hashing`, `sentence-transformers`, `openai`, `ollama` |
-| `LLM_PROVIDER` | `extractive` | `extractive`, `openai`, `anthropic`, `gemini`, `ollama` |
-| `RETRIEVAL_MODE` | `hybrid` | `hybrid`, `dense`, `keyword` |
-| `RERANKER` | `heuristic` | `heuristic`, `cross-encoder`, `llm`, `none` |
-| `JWT_SECRET` | (auto-generated in dev) | **Required in production** |
-
-See `.env.example` for all options.
-
-## Default Providers (Zero-Setup)
-
-| Component | Default | Description |
-|-----------|---------|-------------|
-| Embeddings | Hashing | Deterministic lexical embeddings, no download, offline |
-| LLM | Extractive | Quotes matching sentences, grounded by construction |
-| Vector Store | SQLite | Persistent single-file index, exact search |
-| Keyword Index | SQLite FTS5 | Persistent, shared across workers |
-| Reranker | Heuristic | Lexical coverage/proximity, no dependencies |
-
-## API Endpoints
-
-### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login, returns JWT
-- `GET /api/auth/me` - Get current user
-- `POST /api/auth/change-password` - Change password
-
-### Documents
-- `POST /api/documents/upload` - Upload and ingest document
-- `GET /api/documents` - List documents (paginated)
-- `GET /api/documents/{id}` - Get document details
-- `GET /api/documents/{id}/chunks` - List document chunks
-- `DELETE /api/documents/{id}` - Delete document
-
-### Chat
-- `POST /api/chat/ask` - Ask a question
-- `GET /api/chat/conversations` - List conversations
-- `GET /api/chat/conversations/{id}` - Get conversation with messages
-- `DELETE /api/chat/conversations/{id}` - Delete conversation
-- `PATCH /api/chat/conversations/{id}` - Update conversation title
-
-### Settings
-- `GET /api/settings` - Get current settings
-- `GET /api/settings/embedding-providers` - Available embedding providers
-- `GET /api/settings/llm-providers` - Available LLM providers
-- `GET /api/settings/rerankers` - Available rerankers
-- `GET /api/settings/vector-stores` - Available vector stores
-- `GET /api/settings/keyword-indexes` - Available keyword indexes
-- `GET /api/settings/grounding` - Grounding thresholds
-
-## Running Tests
-
-```bash
-# Backend self-checks (zero-dependency)
-cd backend
-python -m selfcheck
-
-# Backend pytest tests
-pytest tests/ -v
-
-# Frontend tests
-cd frontend
-npm test
-```
-
-## Evaluation
-
-The platform includes a comprehensive evaluation harness that measures retrieval and generation quality on a labeled dataset.
-
-```bash
-# Run evaluation on the built-in demo corpus
-cd backend
-python -m kip.eval
-```
-
-The evaluation uses the demo corpus (`data/demo_corpus/`) with 20 questions (17 answerable, 3 unanswerable) covering FoodTech, Civil Engineering, Packaging, and Archival domains.
-
-### Actual Results (Zero-Dependency Stack: HashingEmbedder + ExtractiveLLM)
-
-| Metric | Value |
-|--------|-------|
-| **Retrieval** | |
-| Recall@1 | 0.221 |
-| Recall@3 | 0.438 |
-| Recall@5 | 0.577 |
-| Recall@10 | 0.749 |
-| MRR | 0.922 |
-| **Generation** (when system answers) | |
-| Groundedness | 1.000 |
-| Citation Coverage | 1.000 |
-| Citation Correctness | 1.000 |
-| **Refusal** | |
-| Refusal Accuracy (unanswerable) | 1.000 |
-| Answer Rate (answerable) | 0.294 |
-| **Latency** | ~55 ms total |
-
-### Methodology & Limitations
-
-**Retrieval Evaluation**: Uses the exact production `HybridRetriever` (RRF fusion of dense + BM25). Ground truth is document-level: a retrieved chunk is "relevant" if it comes from the document that contains the answer.
-
-**Generation Evaluation**: Uses the full production `RagPipeline` with `ExtractiveClient`. Metrics are computed on questions the system *chooses to answer* (non-refused):
-- **Groundedness**: Fraction of answer claims supported by cited passages (extractive LLM quotes verbatim → 1.0 when it answers)
-- **Citation Coverage**: Fraction of answer sentences with citations (extractive LLM always cites → 1.0 when it answers)
-- **Citation Correctness**: Whether citations reference real retrieved passages (1.0)
-- **Refusal Accuracy**: Fraction of unanswerable questions correctly refused (1.0)
-- **Answer Rate**: Fraction of answerable questions the system actually answers (0.294)
-
-**Known Limitations of Zero-Dependency Stack**:
-- **HashingEmbedder** provides no semantic understanding - dense retrieval is essentially random. The strong Recall@10 (0.749) comes primarily from BM25 keyword matching.
-- **ExtractiveClient** can only quote verbatim from retrieved passages. It cannot synthesize, paraphrase, or infer. Questions requiring inference (e.g., "What temperature gives best balance?") fail even when the answer is in the text.
-- **Answer Rate (0.294)** reflects this: only 5 of 17 answerable questions are successfully answered.
-- For production use, configure `EMBEDDING_PROVIDER=sentence-transformers` and `LLM_PROVIDER=openai` (or similar) for dramatically better retrieval and generation.
-
-**Evaluation Dataset**: `data/eval_dataset.jsonl` - 20 QA pairs derived from the demo corpus. Extend this file for domain-specific evaluation.
-
-## Project Structure
-
-```
-knowledge-intelligence-platform/
-├── backend/
-│   ├── kip/
-│   │   ├── api/              # FastAPI routers
-│   │   ├── config.py         # Configuration
-│   │   ├── db/               # SQLAlchemy models & repositories
-│   │   ├── security/         # Passwords, JWT, file validation
-│   │   ├── services/         # Business logic
-│   │   └── core/             # RAG engine (zero-dep)
-│   │       ├── embeddings/   # Embedding providers
-│   │       ├── vectorstore/  # Vector store backends
-│   │       ├── retrieval/    # Hybrid retrieval
-│   │       ├── rerank/       # Rerankers
-│   │       ├── rag/          # Pipeline, grounding, citations
-│   │       └── llm/          # LLM providers
-│   ├── selfcheck/            # Zero-dependency verification
-│   └── tests/                # Pytest tests
-├── frontend/
-│   ├── src/
-│   │   ├── components/       # React components
-│   │   ├── pages/            # Page components
-│   │   ├── lib/              # Auth, API client
-│   │   └── styles/           # CSS
-│   └── ...
-├── docker-compose.yml
-└── docs/
-    └── adr/                  # Architecture Decision Records
-```
-
-## Deployment
-
-### Production Checklist
-
-1. Set `APP_ENV=production`
-2. Generate strong `JWT_SECRET` (32+ chars)
-3. Use PostgreSQL: `DATABASE_URL=postgresql://user:pass@host:5432/db`
-4. Use Qdrant: `VECTOR_STORE=qdrant`, `QDRANT_URL=http://qdrant:6333`
-5. Configure `CORS_ORIGINS` for your domain
-6. Set `ALLOW_REGISTRATION=false` if needed
-7. Configure LLM provider API keys
-8. Enable HTTPS (reverse proxy with TLS termination)
-
-### Scaling
-
-- **API**: Run multiple backend replicas behind a load balancer
-- **Database**: PostgreSQL with connection pooling (PgBouncer)
-- **Vector Store**: Qdrant cluster for >100k chunks
-- **Keyword Index**: SQLite FTS5 is single-writer; for high write throughput use Qdrant's payload filtering
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make changes with tests
-4. Run `python -m selfcheck` and `pytest`
-5. Submit a PR
-
-## License
-
-MIT License - see [LICENSE](LICENSE)
-
-## Architecture Decision Records
-
-See [docs/adr/](docs/adr/) for key architectural decisions:
-
-- ADR-001: Zero-dependency core
-- ADR-002: SQLite as default vector store
-- ADR-003: Extractive LLM as default
-- ADR-004: Hybrid retrieval with RRF
-- ADR-005: Citation integrity design
+The project evolves across 6 major generations:
+1. **Gen 1 — Intelligent Research Core**: Phase 9 (Knowledge Automation) → Phase 10 (Evidence & Citation Intelligence) → Phase 11 (Advanced Research Planning).
+2. **Gen 2 — Multimodal Intelligence**: Phase 12 (Advanced Multimodal) → Phase 13 (Dataset & Data Analysis) → Phase 14 (Document & Paper Intelligence).
+3. **Gen 3 — Autonomous Research**: Phase 15 (Deep Research Engine) → Phase 16 (Research Memory) → Phase 17 (Long-Term Knowledge Graph).
+4. **Gen 4 — Collaboration Platform**: Phase 18 (Projects & Workspaces) → Phase 19 (Team Collaboration).
+5. **Gen 5 — AI Platform Intelligence**: Phase 20 (Intelligent Model Ecosystem) → Phase 21 (Model Evaluation) → Phase 22 (Agent Evaluation).
+6. **Gen 6 — Production Product**: Phase 23 (Enterprise Security) → Phase 24 (Production Scale) → Phase 25 (Public API) → Phase 26 (Research Automation).
